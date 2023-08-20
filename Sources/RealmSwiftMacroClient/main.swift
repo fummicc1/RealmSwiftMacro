@@ -7,7 +7,6 @@ class Todo: Object {
     @Persisted var name: String
     @Persisted var owner: String
     @Persisted var status: String
-
 }
 
 func main() {
