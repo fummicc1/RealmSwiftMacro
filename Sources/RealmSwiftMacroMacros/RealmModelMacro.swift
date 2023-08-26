@@ -14,15 +14,6 @@ private enum Method: CaseIterable {
     // case stopObservation
 }
 
-/// Implementation of the `stringify` macro, which takes an expression
-/// of any type and produces a tuple containing the value of that expression
-/// and the source code that produced the value. For example
-///
-///     #stringify(x + y)
-///
-///  will expand to
-///
-///     (x + y, "x + y")
 public struct RealmModelMacro: MemberMacro {
     public static func expansion(
         of node: SwiftSyntax.AttributeSyntax,
@@ -44,8 +35,20 @@ public struct RealmModelMacro: MemberMacro {
             $0.pattern.as(IdentifierPatternSyntax.self)?.identifier.text
         }
 
-        let typeAnnotations = members.compactMap {
-            $0.typeAnnotation?.type.as(IdentifierTypeSyntax.self)?.name.text
+        let typeAnnotations = members.compactMap { member -> String? in
+            guard let identifier = member.typeAnnotation?.type.as(IdentifierTypeSyntax.self) else {
+                return nil
+            }
+            if let generics = identifier.genericArgumentClause {
+                let genericsNames = generics.arguments.compactMap { genericsArg in
+                    if let genericsName = genericsArg.argument.as(IdentifierTypeSyntax.self)?.name.text {
+                        return genericsName
+                    }
+                    return nil
+                }.joined(separator: ", ")
+                return "\(identifier.name.text)<\(genericsNames)>"
+            }
+            return identifier.name.text
         }
 
         var codes: [DeclSyntax] = []
@@ -65,7 +68,7 @@ public struct RealmModelMacro: MemberMacro {
 static func create(\(raw: parameters)) async throws -> \(raw: className) {
     let realm = try await Realm()
     return try await realm.asyncWrite {
-        try realm.create(
+        realm.create(
             \(raw: className).self,
             value: [
                 \(raw: value)
@@ -138,15 +141,12 @@ static func list() async throws -> Results<\(raw: className)> {
 
             case .observe:
                 let code: DeclSyntax = """
-static func observe(actor _actor: (any Actor)? = nil) async throws -> AsyncStream<RealmCollectionChange<Results<\(raw: className)>>> {
+static func observe(actor: any Actor = MainActor.shared) async throws -> AsyncStream<RealmCollectionChange<Results<\(raw: className)>>> {
     let realm = try await Realm()
-    let objects = await realm.objects(\(raw: className).self)
-    let actor: any Actor = _actor ?? MainActor.shared
-    let objs = realm.objects(Todo.self)
+    let objects = realm.objects(\(raw: className).self)
     let stream = AsyncStream { continuation in
         Task {
-            // TODO: also include `token` (output) to a caller.
-            let _ = await objs.observe(on: actor, { actor, changes in
+            let _ = await objects.observe(on: actor, { actor, changes in
                 continuation.yield(changes)
             })
         }
