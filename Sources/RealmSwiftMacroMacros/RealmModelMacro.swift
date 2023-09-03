@@ -10,8 +10,12 @@ private enum Method: CaseIterable {
     case list
     case observe
 
-    // TODO: Support `stopObservation`
-    // case stopObservation
+    // TODO: Support cancellation of observation.
+    // case cancell
+}
+
+public enum RealmSwiftMacroError: Error {
+    case didNotFindTypeAnnotationForProperty(VariableDeclSyntax?)
 }
 
 public struct RealmModelMacro: MemberMacro {
@@ -29,15 +33,25 @@ public struct RealmModelMacro: MemberMacro {
 
         let members = classDecl.memberBlock.members
             .compactMap { $0.decl.as(VariableDeclSyntax.self) }
-            .compactMap { $0.bindings.first }
+            .compactMap { decl -> (PatternBindingSyntax, VariableDeclSyntax)? in
+                guard let member = decl.bindings.first else {
+                    return nil
+                }
+                if !decl.hasAttribute(name: "Persisted") {
+                    return nil
+                }
+                return (member, decl)
+            }
 
-        let memberNames = members.map {
+        let memberNames = members.map(\.0).map {
             $0.pattern.as(IdentifierPatternSyntax.self)?.identifier.text
         }
 
-        let typeAnnotations = members.compactMap { member -> String? in
+        let typeAnnotations = try members.compactMap { (member, varDecl) -> String? in
             guard let identifier = member.typeAnnotation?.type.as(IdentifierTypeSyntax.self) else {
-                return nil
+                throw RealmSwiftMacroError.didNotFindTypeAnnotationForProperty(
+                    varDecl
+                )
             }
             if let generics = identifier.genericArgumentClause {
                 let genericsNames = generics.arguments.compactMap { genericsArg in
@@ -159,5 +173,21 @@ public static func observe(actor: any Actor = MainActor.shared) async throws -> 
         }
 
         return codes
+    }
+}
+
+private extension VariableDeclSyntax {
+    func hasAttribute(name: String) -> Bool {
+        let attrNameList = attributes?.compactMap { attr -> String? in
+            guard let attr = attr.as(AttributeSyntax.self) else {
+                return nil
+            }
+            // Get attributeName
+            guard let attrName = attr.attributeName.as(IdentifierTypeSyntax.self)?.name.text else {
+                return nil
+            }
+            return attrName
+        } ?? []
+        return attrNameList.contains(name)
     }
 }
