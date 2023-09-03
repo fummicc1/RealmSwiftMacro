@@ -65,7 +65,7 @@ public struct RealmModelMacro: MemberMacro {
                 }.joined(separator: ",\n")
 
                 let code: DeclSyntax = """
-static func create(\(raw: parameters)) async throws -> \(raw: className) {
+public static func create(\(raw: parameters)) async throws -> \(raw: className) {
     let realm = try await Realm()
     return try await realm.asyncWrite {
         realm.create(
@@ -98,7 +98,7 @@ if let \(raw: memberName) {
 
                 // TODO: traverse primary key and find
                 let code: DeclSyntax = """
-func update(\(raw: parameters)) async throws {
+public func update(\(raw: parameters)) async throws {
     let realm: Realm
     if let _realm = self.realm {
         realm = _realm
@@ -115,7 +115,7 @@ func update(\(raw: parameters)) async throws {
             case .delete:
 
                 let code: DeclSyntax = """
-func delete() async throws {
+public func delete() async throws {
     let realm: Realm
     if let _realm = self.realm {
         realm = _realm
@@ -132,7 +132,7 @@ func delete() async throws {
                 break
             case .list:
                 let code: DeclSyntax = """
-static func list() async throws -> Results<\(raw: className)> {
+public static func list() async throws -> Results<\(raw: className)> {
     let realm = try await Realm()
     return realm.objects(\(raw: className).self)
 }
@@ -141,7 +141,7 @@ static func list() async throws -> Results<\(raw: className)> {
 
             case .observe:
                 let code: DeclSyntax = """
-static func observe(actor: any Actor = MainActor.shared) async throws -> AsyncStream<RealmCollectionChange<Results<\(raw: className)>>> {
+public static func observe(actor: any Actor = MainActor.shared) async throws -> AsyncStream<RealmCollectionChange<Results<\(raw: className)>>> {
     let realm = try await Realm()
     let objects = realm.objects(\(raw: className).self)
     let stream = AsyncStream { continuation in
