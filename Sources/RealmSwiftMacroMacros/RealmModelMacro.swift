@@ -178,7 +178,7 @@ public static func observe(actor: any Actor = MainActor.shared) async throws -> 
 
 private extension VariableDeclSyntax {
     func hasAttribute(name: String) -> Bool {
-        let attrNameList = attributes?.compactMap { attr -> String? in
+        let attrNameList = attributes.compactMap { attr -> String? in
             guard let attr = attr.as(AttributeSyntax.self) else {
                 return nil
             }
