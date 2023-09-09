@@ -103,9 +103,15 @@ public static func create(\(raw: parameters)) async throws -> \(raw: className) 
                         return DeclSyntax("")
                     }
                     let decl: DeclSyntax = """
+let dict: [String: Any] = [:]
 if let \(raw: memberName) {
-    self.\(raw: memberName) = \(raw: memberName)
+    dict["\(raw: memberName)"] = \(raw: memberName)
 }
+realm.create(
+    \(raw: className).self,
+    value: dict,
+    update: .modified
+)
 """
                     return decl
                 }
