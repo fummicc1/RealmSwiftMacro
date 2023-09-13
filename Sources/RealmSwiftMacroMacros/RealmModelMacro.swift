@@ -161,7 +161,7 @@ public static func list() async throws -> Results<\(raw: className)> {
 
             case .observe:
                 let code: DeclSyntax = """
-public static func observe(actor: any Actor = MainActor.shared) async throws -> (NotificationToken, AsyncStream<RealmCollectionChange<Results<\(raw: className)>>>) {
+public static func observe() async throws -> (NotificationToken, AsyncStream<RealmCollectionChange<Results<\(raw: className)>>>) {
     let realm = try await Realm()
     let objects = realm.objects(\(raw: className).self)
     var notificationToken: NotificationToken!
