@@ -89,17 +89,16 @@ class Todo: Object {
         return realm.objects(Todo.self)
     }
 
-    public static func observe(actor: any Actor = MainActor.shared) async throws -> AsyncStream<RealmCollectionChange<Results<Todo>>> {
+    public static func observe(actor: any Actor = MainActor.shared) async throws -> (NotificationToken, AsyncStream<RealmCollectionChange<Results<Todo>>>) {
         let realm = try await Realm()
         let objects = realm.objects(Todo.self)
+        var notificationToken: NotificationToken!
         let stream = AsyncStream { continuation in
-            Task {
-                let _ = await objects.observe(on: actor, { actor, changes in
-                    continuation.yield(changes)
-                })
-            }
+            notificationToken = objects.observe({ changes in
+                continuation.yield(changes)
+            })
         }
-        return stream
+        return (notificationToken, stream)
     }
 }
 """
