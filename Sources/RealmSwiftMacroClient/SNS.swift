@@ -12,6 +12,10 @@ class User: Object {
     @Persisted var signedInAt: Date
 
     @Persisted var posts: List<Post>
+
+    var allContents: String {
+        posts.map { $0.content }.joined(separator: "\n")
+    }
 }
 
 

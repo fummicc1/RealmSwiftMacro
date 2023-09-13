@@ -51,18 +51,24 @@ class Todo: Object {
             realm = try await Realm()
         }
         try await realm.asyncWrite {
+            var dict: [String: Any] = [:]
             if let _id {
-        self._id = _id
+        dict["_id"] = _id
             }
             if let name {
-                self.name = name
+                dict["name"] = name
             }
             if let owner {
-                self.owner = owner
+                dict["owner"] = owner
             }
             if let status {
-                self.status = status
+                dict["status"] = status
             }
+            realm.create(
+                Todo.self,
+                value: dict,
+                update: .modified
+            )
         }
     }
 
