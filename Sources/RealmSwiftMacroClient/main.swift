@@ -18,7 +18,7 @@ func main() {
         let todos = try await Todo.list()
         print(todos)
         // MARK: Observe all List
-        let stream = try await Todo.observe()
+        let (_, stream) = try await Todo.observe()
         for try await todoChange in stream {
             switch todoChange {
             case .initial(let todos):
