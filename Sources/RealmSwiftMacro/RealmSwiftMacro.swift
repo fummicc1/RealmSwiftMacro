@@ -4,9 +4,13 @@
 import Realm
 import RealmSwift
 
-/// A macro that produces some methods that can help to perform crud on Realm database.
+/// A macro that generates a thread-safe ModelActor for Realm database CRUD operations.
 ///
-/// following code defines `Todo` object which represents simple data stored in Realm.
+/// The macro creates:
+/// 1. A dedicated Actor (`{Model}Actor`) for thread-safe operations
+/// 2. Convenience instance/static methods that use the Actor internally
+///
+/// Example model definition:
 /// ```swift
 ///     @GenCrud
 ///     class Todo: Object {
@@ -17,36 +21,36 @@ import RealmSwift
 ///     }
 /// ```
 ///
-/// Just adding `@GenCrud` macro, crud methods will automatically generates and can be used like the below.
+/// ## API 1: ModelActor (Recommended for complex scenarios)
 ///
 /// ```swift
-///     // MARK: Create
-///     let todo = try await Todo.create(
-///         _id: .generate(),
-///         name: "Sample name",
-///         owner: "Sample owner",
-///         status: "Sample status"
-///     )
-///     // MARK: Update
-///     try await todo.update(name: "Updated name")
-///     // MARK: Delete
-///     try await todo.delete()
-///     // MARK: Get all List
-///     let todos = try await Todo.list()
-///     print(todos)
-///     // MARK: Observe all List
-///     let stream = try await Todo.observe()
-///     for try await todoChange in stream {
-///         switch todoChange {
-///         case .initial(let todos):
-///             print(todos)
-///         case let .update(updatedTodos, _, _, _):
-///             print(updatedTodos)
-///         case .error(let error):
-///             print(error)
-///         }
+///     // Create actor instance (reusable)
+///     let todoActor = try await TodoActor()
+///
+///     // CRUD operations
+///     let todo = try await todoActor.create(_id: .generate(), name: "Task", owner: "User", status: "Active")
+///     try await todoActor.update(todo, name: "Updated")
+///     try await todoActor.delete(todo)
+///     let todos = try await todoActor.list()
+///
+///     // Real-time observation
+///     for await todos in todoActor.observe() {
+///         print("Current: \(todos.count)")
 ///     }
 /// ```
+///
+/// ## API 2: Convenience Methods (Simple one-off operations)
+///
+/// ```swift
+///     // Static/instance methods (creates new actor internally)
+///     let todo = try await Todo.create(_id: .generate(), name: "Task", owner: "User", status: "Active")
+///     try await todo.update(name: "Updated")
+///     try await todo.delete()
+///     let todos = try await Todo.list()
+///
+///     // Note: For observation, use the Actor API (todoActor.observe())
+/// ```
+@attached(peer, names: suffixed(Actor))
 @attached(member, names: arbitrary)
 public macro GenCrud() = #externalMacro(
     module: "RealmSwiftMacroMacros",

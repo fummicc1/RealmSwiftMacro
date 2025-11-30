@@ -2,7 +2,7 @@ import RealmSwift
 import RealmSwiftMacro
 
 @GenCrud
-class Todo: Object {
+public class Todo: Object {
     @Persisted(primaryKey: true) var _id: ObjectId
     @Persisted var name: String
     @Persisted var owner: String
