@@ -2,6 +2,28 @@
 
 A Swift macro that automatically generates a thread-safe ModelActor and convenience methods for Realm database CRUD operations.
 
+## Status
+
+[![CI](https://github.com/fumiyatanaka/RealmSwiftMacro/workflows/CI/badge.svg)](https://github.com/fumiyatanaka/RealmSwiftMacro/actions/workflows/ci.yml)
+[![Swift](https://img.shields.io/badge/Swift-5.9+-orange.svg)](https://swift.org)
+[![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20iOS%20%7C%20tvOS%20%7C%20watchOS-lightgrey.svg)](https://github.com/fumiyatanaka/RealmSwiftMacro)
+
+> ⚠️ **Known Issue**: Full package build currently fails due to RealmSwift 10.54.6 SIL verification errors with Swift 6. Macro functionality is fully validated via isolated tests.
+
+## CI Strategy
+
+This project uses a **phased CI approach**:
+
+- **Phase 1 (Current)**: Validates macro compilation and expansion tests
+  - ✅ Macro target builds successfully
+  - ✅ Macro expansion logic validated
+  - ✅ Code quality checks
+
+- **Phase 2 (Future)**: Full integration testing when RealmSwift is compatible
+  - ⏳ Complete package build
+  - ⏳ Full test suite execution
+  - ⏳ Multi-platform testing
+
 ## Features
 
 - 🎯 **ModelActor Pattern**: Generates a dedicated Actor for each Realm model
