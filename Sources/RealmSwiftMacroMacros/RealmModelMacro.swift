@@ -44,7 +44,7 @@ public struct RealmModelMacro: MemberMacro, PeerMacro {
                 return (member, decl)
             }
 
-        let memberNames = members.map(\.0).map {
+        let memberNames = members.map(\.0).compactMap {
             $0.pattern.as(IdentifierPatternSyntax.self)?.identifier.text
         }
 
@@ -70,10 +70,10 @@ public struct RealmModelMacro: MemberMacro, PeerMacro {
 
         // create() method
         let createParameters = zip(memberNames, typeAnnotations).map {
-            "\($0!): \($1)"
+            "\($0): \($1)"
         }.joined(separator: ", ")
 
-        let createArgs = memberNames.map { "\($0!): \($0!)" }.joined(separator: ", ")
+        let createArgs = memberNames.map { "\($0): \($0)" }.joined(separator: ", ")
 
         let createCode: DeclSyntax = """
 public static func create(\(raw: createParameters)) async throws -> \(raw: className) {
@@ -85,10 +85,10 @@ public static func create(\(raw: createParameters)) async throws -> \(raw: class
 
         // update() instance method
         let updateParameters = zip(memberNames, typeAnnotations).map {
-            "\($0!): \($1)? = nil"
+            "\($0): \($1)? = nil"
         }.joined(separator: ", ")
 
-        let updateArgs = memberNames.map { "\($0!): \($0!)" }.joined(separator: ", ")
+        let updateArgs = memberNames.map { "\($0): \($0)" }.joined(separator: ", ")
 
         let updateCode: DeclSyntax = """
 public func update(\(raw: updateParameters)) async throws {
@@ -300,7 +300,7 @@ private extension VariableDeclSyntax {
                 return nil
             }
             return attrName
-        } ?? []
+        }
         return attrNameList.contains(name)
     }
 }

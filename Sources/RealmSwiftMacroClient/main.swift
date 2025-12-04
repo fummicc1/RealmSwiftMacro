@@ -105,3 +105,5 @@ func main() async throws {
     
     print("\n=== Demo Complete ===")
 }
+
+try await main()

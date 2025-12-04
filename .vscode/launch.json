@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:RealmSwiftMacro}",
+            "name": "Debug RealmSwiftMacroClient",
+            "target": "RealmSwiftMacroClient",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug RealmSwiftMacroClient"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:RealmSwiftMacro}",
+            "name": "Release RealmSwiftMacroClient",
+            "target": "RealmSwiftMacroClient",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release RealmSwiftMacroClient"
+        }
+    ]
+}
