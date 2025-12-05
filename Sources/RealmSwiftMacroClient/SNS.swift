@@ -3,7 +3,7 @@ import RealmSwiftMacro
 import Foundation
 
 @GenCrud
-class User: Object {
+public class User: Object {
     @Persisted(primaryKey: true) var id: String = UUID().uuidString
     @Persisted var userId: String
     @Persisted var userName: String
@@ -20,7 +20,7 @@ class User: Object {
 
 
 @GenCrud
-class Post: Object {
+public class Post: Object {
     @Persisted(primaryKey: true) var id: String = UUID().uuidString
     @Persisted var senderId: String
     @Persisted var content: String
