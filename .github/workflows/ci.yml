@@ -18,7 +18,7 @@ jobs:
     strategy:
       matrix:
         os: [macos-14, macos-15]
-        swift: ['5.9', '6.0']
+        swift: ['6.0', '6.1', '6.2']
       fail-fast: false
 
     steps:
@@ -107,7 +107,7 @@ jobs:
     strategy:
       matrix:
         os: [macos-14, macos-15]
-        swift: ['5.9', '6.0']
+        swift: ['6.0', '6.1', '6.2']
       fail-fast: false
 
     steps:

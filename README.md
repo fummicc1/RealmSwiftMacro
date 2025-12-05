@@ -5,7 +5,7 @@ A Swift macro that automatically generates a thread-safe ModelActor and convenie
 ## Status
 
 [![CI](https://github.com/fumiyatanaka/RealmSwiftMacro/workflows/CI/badge.svg)](https://github.com/fumiyatanaka/RealmSwiftMacro/actions/workflows/ci.yml)
-[![Swift](https://img.shields.io/badge/Swift-5.9+-orange.svg)](https://swift.org)
+[![Swift](https://img.shields.io/badge/Swift-6.0+-orange.svg)](https://swift.org)
 [![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20iOS%20%7C%20tvOS%20%7C%20watchOS-lightgrey.svg)](https://github.com/fumiyatanaka/RealmSwiftMacro)
 
 > **Note**: Full package build requires RealmSwift dependencies. Macro functionality is validated via isolated macro target tests.
