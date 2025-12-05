@@ -1,29 +1,40 @@
 import RealmSwiftMacro
 import RealmSwift
 
+@MainActor
 func main() async throws {
+    // Reset state on storage.
+    let realm = try await Realm()
+    try await realm.asyncWrite {
+        realm.deleteAll()
+    }
     // Create TodoActor instance
     // The macro generates TodoActor with thread-safe Realm operations
-    let todoActor = try await TodoActor()
+    let todoActor = TodoActor()
     
     print("=== ModelActor Pattern Demo ===\n")
     
+    var modelId = ObjectId.generate()
+    
     // MARK: Create
     print("# Create")
-    let todo1 = try await todoActor.create(
-        _id: .generate(),
+    try await todoActor.create(
+        _id: modelId,
         name: "First Todo",
         owner: "User 1",
         status: "Active"
     )
+    let todo1 = try await todoActor.list().filter({ $0._id == modelId }).first!
     print("Created: \(todo1.name)")
     
-    let todo2 = try await todoActor.create(
-        _id: .generate(),
+    modelId = ObjectId.generate()
+    try await todoActor.create(
+        _id: modelId,
         name: "Second Todo",
         owner: "User 2",
         status: "Pending"
     )
+    let todo2 = try await todoActor.list().filter({ $0._id == modelId }).first!
     print("Created: \(todo2.name)\n")
     
     // MARK: List
@@ -54,7 +65,7 @@ func main() async throws {
     // Start observing in a separate task
     let observationTask = Task {
         var count = 0
-        for await todos in await todoActor.observe() {
+        for await todos in try! await todoActor.observe() {
             count += 1
             print("📢 Change #\(count): \(todos.count) todos")
             if count >= 3 {
@@ -89,10 +100,11 @@ func main() async throws {
     
     // MARK: Delete
     print("# Delete")
-    let finalTodos = try await todoActor.list()
+    let finalTodos = try await todoActor.list(on: MainActor.shared)
     if let todoToDelete = finalTodos.first {
+        let id = todoToDelete._id
         try await todoActor.delete(todoToDelete)
-        print("Deleted: \(todoToDelete.name)")
+        print("Deleted id: \(id)")
     }
     
     // MARK: Final List

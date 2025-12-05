@@ -24,6 +24,7 @@ public struct RealmModelMacro: MemberMacro, PeerMacro {
     public static func expansion(
         of node: SwiftSyntax.AttributeSyntax,
         providingMembersOf declaration: some SwiftSyntax.DeclGroupSyntax,
+        conformingTo protocols: [SwiftSyntax.TypeSyntax],
         in context: some SwiftSyntaxMacros.MacroExpansionContext
     ) throws -> [SwiftSyntax.DeclSyntax] {
         guard let classDecl = declaration.as(ClassDeclSyntax.self) else {
@@ -76,8 +77,8 @@ public struct RealmModelMacro: MemberMacro, PeerMacro {
         let createArgs = memberNames.map { "\($0): \($0)" }.joined(separator: ", ")
 
         let createCode: DeclSyntax = """
-public static func create(\(raw: createParameters)) async throws -> \(raw: className) {
-    let actor = try await \(raw: className)Actor()
+public static func create(\(raw: createParameters)) async throws {
+    let actor = \(raw: className)Actor()
     return try await actor.create(\(raw: createArgs))
 }
 """
@@ -91,27 +92,27 @@ public static func create(\(raw: createParameters)) async throws -> \(raw: class
         let updateArgs = memberNames.map { "\($0): \($0)" }.joined(separator: ", ")
 
         let updateCode: DeclSyntax = """
-public func update(\(raw: updateParameters)) async throws {
-    let actor = try await \(raw: className)Actor()
-    try await actor.update(self, \(raw: updateArgs))
+public func update(\(raw: updateParameters), on actor: (any Actor)? = #isolation) async throws {
+    let actor = \(raw: className)Actor()
+    try await actor.update(self, \(raw: updateArgs), on: actor)
 }
 """
         codes.append(updateCode)
 
         // delete() instance method
         let deleteCode: DeclSyntax = """
-public func delete() async throws {
-    let actor = try await \(raw: className)Actor()
-    try await actor.delete(self)
+public func delete(on actor: (any Actor)? = #isolation) async throws {
+    let actor = \(raw: className)Actor()
+    try await actor.delete(self, on: actor)
 }
 """
         codes.append(deleteCode)
 
         // list() static method
         let listCode: DeclSyntax = """
-public static func list() async throws -> [\(raw: className)] {
-    let actor = try await \(raw: className)Actor()
-    return try await actor.list()
+public static func list(on actor: isolated (any Actor)? = #isolation) async throws -> [\(raw: className)] {
+    let actor = \(raw: className)Actor()
+    return try await actor.list(on: actor)
 }
 """
         codes.append(listCode)
@@ -144,7 +145,7 @@ public static func list() async throws -> [\(raw: className)] {
                 return (member, decl)
             }
 
-        let memberNames = members.map(\.0).map {
+        let memberNames = members.map(\.0).compactMap {
             $0.pattern.as(IdentifierPatternSyntax.self)?.identifier.text
         }
 
@@ -176,89 +177,100 @@ public static func list() async throws -> [\(raw: className)] {
 
     private static func generateActor(
         className: String,
-        memberNames: [String?],
+        memberNames: [String],
         typeAnnotations: [String]
     ) throws -> DeclSyntax {
         // Generate create parameters
         let createParameters = zip(memberNames, typeAnnotations).map {
-            "\($0!): \($1)"
+            "\($0): \($1)"
         }.joined(separator: ", ")
 
         let createValues = memberNames.map {
-            "\"\($0!)\": \($0!)"
-        }.joined(separator: ",\n                ")
+"""
+                "\($0)": \($0),
+"""
+        }.joined(separator: "\n")
 
         // Generate update parameters
         let updateParameters = zip(memberNames, typeAnnotations).map {
-            "\($0!): \($1)? = nil"
+            "\($0): \($1)? = nil"
         }.joined(separator: ", ")
 
-        let updateAssignments = memberNames.compactMap { memberName -> String? in
-            guard let memberName else { return nil }
+        let updateAssignments = memberNames.compactMap { memberName -> String in
             return """
-if let \(memberName) {
-    dict["\(memberName)"] = \(memberName)
-}
+            if let \(memberName) {
+                safeObject.\(memberName) = \(memberName)
+            }
 """
-        }.joined(separator: "\n        ")
+        }.joined(separator: "\n")
 
         let actorCode: DeclSyntax = """
 public actor \(raw: className)Actor {
-    private let realm: Realm
-    private var notificationToken: NotificationToken?
+    private let realmConfiguration: Realm.Configuration
 
-    public init(configuration: Realm.Configuration = .defaultConfiguration) async throws {
-        self.realm = try await Realm(configuration: configuration)
-    }
-
-    deinit {
-        notificationToken?.invalidate()
+    public init(configuration: Realm.Configuration = .defaultConfiguration) {
+        self.realmConfiguration = configuration
     }
 
     // MARK: - CRUD Operations
 
-    public func create(\(raw: createParameters)) async throws -> \(raw: className) {
+    public func create(\(raw: createParameters)) async throws {
+        let realm = try await Realm(
+            configuration: realmConfiguration,
+            actor: self
+        )
         try await realm.asyncWrite {
             realm.create(
                 \(raw: className).self,
                 value: [
-                    \(raw: createValues)
+\(raw: createValues)
                 ]
             )
         }
     }
 
-    public func update(_ object: \(raw: className), \(raw: updateParameters)) async throws {
+    public func update(_ object: \(raw: className), \(raw: updateParameters), on actor: (any Actor)? = #isolation) async throws {
+        let ref = await makeThreadSafeReference(of: object, on: actor)
+        let realm = try await Realm(
+            configuration: realmConfiguration,
+            actor: self
+        )
         try await realm.asyncWrite {
-            var dict: [String: Any] = [:]
-            \(raw: updateAssignments)
-            realm.create(
-                \(raw: className).self,
-                value: dict,
-                update: .modified
-            )
+            let safeObject = realm.resolve(ref)!
+\(raw: updateAssignments)
         }
     }
 
-    public func delete(_ object: \(raw: className)) async throws {
+    public func delete(_ object: \(raw: className), on actor: (any Actor)? = #isolation) async throws {
+        let ref = await makeThreadSafeReference(of: object, on: actor)
+        let realm = try await Realm(
+            configuration: realmConfiguration,
+            actor: self
+        )
+        let safeObject = realm.resolve(ref)!
         try await realm.asyncWrite {
-            realm.delete(object)
+            realm.delete(safeObject)
         }
     }
 
-    public func list() async throws -> [\(raw: className)] {
+    public func list(on actor: isolated (any Actor)? = #isolation) async throws -> [\(raw: className)] {
+        let realm = try await Realm(
+            configuration: realmConfiguration
+        )
         let results = realm.objects(\(raw: className).self)
         return Array(results)
     }
 
     // MARK: - Observation
 
-    public func observe() -> AsyncStream<[\(raw: className)]> {
+    public func observe(on actor: isolated (any Actor)? = #isolation) async throws -> AsyncStream<[\(raw: className)]> {
+        let realm = try await Realm(
+            configuration: realmConfiguration
+        )
         let (stream, continuation) = AsyncStream.makeStream(of: [\(raw: className)].self)
-
         let objects = realm.objects(\(raw: className).self)
 
-        self.notificationToken = objects.observe { changes in
+        let notificationToken = objects.observe { changes in
             switch changes {
             case .initial(let results):
                 continuation.yield(Array(results))
@@ -269,18 +281,16 @@ public actor \(raw: className)Actor {
             }
         }
 
-        continuation.onTermination = { @Sendable [weak self] _ in
-            Task { [weak self] in
-                await self?.stopObserving()
-            }
+        continuation.onTermination = { _ in
+            notificationToken.invalidate()
         }
 
         return stream
     }
 
-    private func stopObserving() {
-        notificationToken?.invalidate()
-        notificationToken = nil
+    // MARK: - Private
+    private func makeThreadSafeReference(of object: \(raw: className), on actor: isolated (any Actor)?) -> ThreadSafeReference<\(raw: className)> {
+        ThreadSafeReference(to: object)
     }
 }
 """
