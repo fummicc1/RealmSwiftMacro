@@ -8,21 +8,7 @@ A Swift macro that automatically generates a thread-safe ModelActor and convenie
 [![Swift](https://img.shields.io/badge/Swift-5.9+-orange.svg)](https://swift.org)
 [![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20iOS%20%7C%20tvOS%20%7C%20watchOS-lightgrey.svg)](https://github.com/fumiyatanaka/RealmSwiftMacro)
 
-> ⚠️ **Known Issue**: Full package build currently fails due to RealmSwift 10.54.6 SIL verification errors with Swift 6. Macro functionality is fully validated via isolated tests.
-
-## CI Strategy
-
-This project uses a **phased CI approach**:
-
-- **Phase 1 (Current)**: Validates macro compilation and expansion tests
-  - ✅ Macro target builds successfully
-  - ✅ Macro expansion logic validated
-  - ✅ Code quality checks
-
-- **Phase 2 (Future)**: Full integration testing when RealmSwift is compatible
-  - ⏳ Complete package build
-  - ⏳ Full test suite execution
-  - ⏳ Multi-platform testing
+> **Note**: Full package build requires RealmSwift dependencies. Macro functionality is validated via isolated macro target tests.
 
 ## Features
 
@@ -57,32 +43,35 @@ The `@GenCrud` macro generates two complementary APIs:
 Best for: Reusable instances, custom configurations, real-time observation
 
 ```swift
-// Create an actor instance (reusable)
-let todoActor = try await TodoActor()
+// Create an actor instance (reusable, synchronous initialization)
+let todoActor = TodoActor()
 
 // Or with custom configuration
 let config = Realm.Configuration(
     fileURL: URL(fileURLWithPath: "/custom/path"),
     schemaVersion: 1
 )
-let todoActor = try await TodoActor(configuration: config)
+let todoActor = TodoActor(configuration: config)
 
 // CRUD operations
-let todo = try await todoActor.create(
+try await todoActor.create(
     _id: .generate(),
     name: "Sample name",
     owner: "Sample owner",
     status: "Active"
 )
 
+// Get the created object via list
+let todos = try await todoActor.list()
+let todo = todos.first!
+
 try await todoActor.update(todo, name: "Updated name", status: "Completed")
 try await todoActor.delete(todo)
 
-let todos = try await todoActor.list()
 print("Total todos: \(todos.count)")
 
 // Real-time observation
-for await todos in todoActor.observe() {
+for await todos in try await todoActor.observe() {
     print("Current todos: \(todos.count)")
     todos.forEach { todo in
         print("- [\(todo.status)] \(todo.name)")
@@ -96,21 +85,29 @@ Best for: Simple one-off operations, quick prototyping
 
 ```swift
 // Static/instance methods (creates new actor internally each time)
-let todo = try await Todo.create(
+try await Todo.create(
     _id: .generate(),
     name: "Sample name",
     owner: "Sample owner",
     status: "Active"
 )
 
+// Get the created object
+let todos = try await Todo.list()
+let todo = todos.first!
+
 try await todo.update(name: "Updated name", status: "Completed")
 try await todo.delete()
 
-let todos = try await Todo.list()
 print("Total todos: \(todos.count)")
 ```
 
-**Note**: For real-time observation, use the ModelActor API (`TodoActor().observe()`)
+```swift
+// Real-time observation is also available via convenience methods
+for await todos in try await Todo.observe() {
+    print("Current todos: \(todos.count)")
+}
+```
 
 ## How It Works
 
@@ -122,11 +119,14 @@ A dedicated `{ModelName}Actor` with:
 
 - **Thread-safe CRUD operations**:
   - `create(_:)` - Create new objects
-  - `update(_:)` - Update existing objects with optional parameters
-  - `delete(_:)` - Delete objects
-  - `list()` - Retrieve all objects as an array
+  - `update(_:on:)` - Update existing objects with optional parameters and actor isolation
+  - `delete(_:on:)` - Delete objects with actor isolation
+  - `list(on:)` - Retrieve all objects (defaults to `MainActor.shared`)
 - **Real-time Observation**:
-  - `observe()` - Returns `AsyncStream<[Model]>` for real-time updates
+  - `observe(on:)` - Returns `AsyncStream<[Model]>` (defaults to `MainActor.shared`)
+- **Actor Isolation**:
+  - `on actor:` parameter enables safe cross-actor object passing using `ThreadSafeReference`
+  - Default to `MainActor.shared` for UI-friendly access
 - **Resource Management**:
   - Automatic Realm instance management
   - NotificationToken lifecycle handling
@@ -136,13 +136,23 @@ A dedicated `{ModelName}Actor` with:
 Static and instance methods added to your model class:
 
 - `static func create(_:)` - Creates actor internally, calls actor.create()
-- `func update(_:)` - Creates actor internally, calls actor.update()
-- `func delete()` - Creates actor internally, calls actor.delete()
-- `static func list()` - Creates actor internally, calls actor.list()
+- `func update(_:on:)` - Creates actor internally, calls actor.update()
+- `func delete(on:)` - Creates actor internally, calls actor.delete()
+- `static func list(on:)` - Creates actor internally (defaults to `MainActor.shared`)
+- `static func observe(on:)` - Creates actor internally (defaults to `MainActor.shared`)
 
 **Performance Note**: Convenience methods create a new Actor instance for each call. For better performance in scenarios with multiple operations, use the ModelActor API directly.
 
 ## Architecture
+
+### Actor Execution Model
+
+Operations are executed on different actors depending on their type:
+
+- **Write operations** (`create`, `update`, `delete`): Always executed on the specialized `{Model}Actor`
+- **Read operations** (`list`, `observe`): Always executed on `MainActor` (UI-friendly)
+
+This design ensures thread-safe writes while keeping reads optimized for UI updates.
 
 ### Thread Safety
 
@@ -152,8 +162,8 @@ All Realm operations are isolated within the Actor, ensuring thread-safe access:
 actor MyBackgroundProcessor {
     let todoActor: TodoActor
 
-    init() async throws {
-        self.todoActor = try await TodoActor()
+    init() {
+        self.todoActor = TodoActor()
     }
 
     func processData() async throws {
@@ -165,14 +175,13 @@ actor MyBackgroundProcessor {
 
 ### UI Integration
 
-For UI updates, wrap in MainActor:
+Since `list()` and `observe()` run on MainActor by default, UI updates are straightforward:
 
 ```swift
 Task {
-    for await todos in todoActor.observe() {
-        await MainActor.run {
-            self.updateUI(with: todos)
-        }
+    for await todos in try await todoActor.observe() {
+        // Already on MainActor - direct UI updates are safe
+        self.updateUI(with: todos)
     }
 }
 ```
