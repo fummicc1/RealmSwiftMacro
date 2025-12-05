@@ -110,7 +110,7 @@ public func delete(on actor: (any Actor)? = #isolation) async throws {
 
         // list() static method
         let listCode: DeclSyntax = """
-public static func list(on actor: isolated (any Actor)? = #isolation) async throws -> [\(raw: className)] {
+public static func list(on actor: isolated any Actor = MainActor.shared) async throws -> [\(raw: className)] {
     let actor = \(raw: className)Actor()
     return try await actor.list(on: actor)
 }
@@ -253,9 +253,10 @@ public actor \(raw: className)Actor {
         }
     }
 
-    public func list(on actor: isolated (any Actor)? = #isolation) async throws -> [\(raw: className)] {
+    public func list(on actor: isolated any Actor = MainActor.shared) async throws -> [\(raw: className)] {
         let realm = try await Realm(
-            configuration: realmConfiguration
+            configuration: realmConfiguration,
+            actor: actor
         )
         let results = realm.objects(\(raw: className).self)
         return Array(results)
@@ -263,9 +264,10 @@ public actor \(raw: className)Actor {
 
     // MARK: - Observation
 
-    public func observe(on actor: isolated (any Actor)? = #isolation) async throws -> AsyncStream<[\(raw: className)]> {
+    public func observe(on actor: isolated any Actor = MainActor.shared) async throws -> AsyncStream<[\(raw: className)]> {
         let realm = try await Realm(
-            configuration: realmConfiguration
+            configuration: realmConfiguration,
+            actor: actor
         )
         let (stream, continuation) = AsyncStream.makeStream(of: [\(raw: className)].self)
         let objects = realm.objects(\(raw: className).self)
