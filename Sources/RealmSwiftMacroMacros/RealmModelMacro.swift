@@ -110,12 +110,21 @@ public func delete(on actor: (any Actor)? = #isolation) async throws {
 
         // list() static method
         let listCode: DeclSyntax = """
-public static func list(on actor: isolated any Actor = MainActor.shared) async throws -> [\(raw: className)] {
+public static func list(on actor: any Actor = MainActor.shared) async throws -> [\(raw: className)] {
     let actor = \(raw: className)Actor()
     return try await actor.list(on: actor)
 }
 """
         codes.append(listCode)
+
+        // observe() static method
+        let observeCode: DeclSyntax = """
+public static func observe(on actor: any Actor = MainActor.shared) async throws -> AsyncStream<[\(raw: className)]> {
+    let actor = \(raw: className)Actor()
+    return try await actor.observe(on: actor)
+}
+"""
+        codes.append(observeCode)
 
         return codes
     }
